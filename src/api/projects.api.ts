@@ -1,5 +1,6 @@
 import { api } from './client';
 import type { Project, Member } from '../types';
+import { useAuthStore } from '../store/auth.store';
 
 export async function getProjects(): Promise<Project[]> {
   const res = await api.get('/projects');
@@ -12,12 +13,21 @@ export async function getProjects(): Promise<Project[]> {
 
 export async function createProject(data: { name: string; description?: string }): Promise<Project> {
   const res = await api.post('/projects', data);
-  return res.data;
+  const project = res.data.project ? res.data.project : res.data;
+  
+  const currentUser = useAuthStore.getState().user;
+  project.role = project.ownerId === currentUser?.id ? 'OWNER' : 'EDITOR';
+  
+  return project;
 }
 
 export async function getProject(id: string): Promise<Project> {
   const res = await api.get(`/projects/${id}`);
-  const project = res.data as Project;
+  const project = res.data.project ? res.data.project : res.data;
+  
+  const currentUser = useAuthStore.getState().user;
+  project.role = project.ownerId === currentUser?.id ? 'OWNER' : 'EDITOR';
+
   const raw = (project as any).canvasData;
   if (typeof raw === 'string') {
     try {
@@ -42,7 +52,12 @@ export async function updateProject(id: string, data: Partial<{ name: string; de
         : data.canvasData,
   };
   const res = await api.put(`/projects/${id}`, payload);
-  return res.data;
+  const project = res.data.project ? res.data.project : res.data;
+  
+  const currentUser = useAuthStore.getState().user;
+  project.role = project.ownerId === currentUser?.id ? 'OWNER' : 'EDITOR';
+  
+  return project;
 }
 
 export async function deleteProject(id: string): Promise<void> {

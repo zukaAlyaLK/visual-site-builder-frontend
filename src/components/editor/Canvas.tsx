@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useCanvasStore } from '../../store/canvas.store';
-import { useAuthStore } from '../../store/auth.store';
 import { Paintbrush } from 'lucide-react';
 import { CanvasElement } from './CanvasElement';
 import { CursorOverlay } from '../collab/CursorOverlay';
@@ -12,20 +11,10 @@ interface Props {
   projectId: string;
 }
 
-const getStoredUser = () => {
-  try {
-    const raw = localStorage.getItem('auth-storage');
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { state?: { user?: { id?: string; name?: string } } };
-    return parsed.state?.user ?? null;
-  } catch {
-    return null;
-  }
-};
+
 
 export function Canvas({ projectId }: Props) {
   const { elements, selectElement } = useCanvasStore();
-  const { user } = useAuthStore();
   const canvasRef = useRef<HTMLDivElement>(null);
   const { setNodeRef: setDropRef } = useDroppable({ id: 'canvas-drop' });
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -33,11 +22,9 @@ export function Canvas({ projectId }: Props) {
 
   const flushCursor = useCallback(() => {
     if (!lastPosRef.current) return;
-    const storedUser = user ?? getStoredUser();
-    const name = storedUser?.name;
-    sendCursor(projectId, lastPosRef.current.x, lastPosRef.current.y, name);
+    sendCursor(projectId, lastPosRef.current.x, lastPosRef.current.y);
     rafRef.current = null;
-  }, [projectId, user?.id, user?.name]);
+  }, [projectId]);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {

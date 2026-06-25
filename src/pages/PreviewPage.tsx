@@ -12,6 +12,7 @@ import { FormElement } from '../components/elements/FormElement';
 import { FooterElement } from '../components/elements/FooterElement';
 import { DividerElement } from '../components/elements/DividerElement';
 import { ColumnsElement } from '../components/elements/ColumnsElement';
+import './PreviewPage.css';
 
 type ViewMode = 'desktop' | 'tablet' | 'mobile';
 
@@ -23,19 +24,28 @@ const VIEW_WIDTHS: Record<ViewMode, string> = {
 
 function renderElement(el: CanvasElement) {
   const props = { element: el, selected: false, onSelect: () => {} };
+  let component = null;
   switch (el.type) {
-    case 'header': return <HeaderElement key={el.id} {...props} />;
-    case 'hero': return <HeroElement key={el.id} {...props} />;
-    case 'text': return <TextElement key={el.id} {...props} />;
-    case 'image': return <ImageElement key={el.id} {...props} />;
-    case 'button': return <ButtonElement key={el.id} {...props} />;
-    case 'card': return <CardElement key={el.id} {...props} />;
-    case 'form': return <FormElement key={el.id} {...props} />;
-    case 'footer': return <FooterElement key={el.id} {...props} />;
-    case 'divider': return <DividerElement key={el.id} {...props} />;
-    case 'columns': return <ColumnsElement key={el.id} {...props} />;
-    default: return null;
+    case 'header': component = <HeaderElement key={el.id} {...props} />; break;
+    case 'hero': component = <HeroElement key={el.id} {...props} />; break;
+    case 'text': component = <TextElement key={el.id} {...props} />; break;
+    case 'image': component = <ImageElement key={el.id} {...props} />; break;
+    case 'button': component = <ButtonElement key={el.id} {...props} />; break;
+    case 'card': component = <CardElement key={el.id} {...props} />; break;
+    case 'form': component = <FormElement key={el.id} {...props} />; break;
+    case 'footer': component = <FooterElement key={el.id} {...props} />; break;
+    case 'divider': component = <DividerElement key={el.id} {...props} />; break;
+    case 'columns': component = <ColumnsElement key={el.id} {...props} />; break;
+    default: component = null;
   }
+  
+  if (!component) return null;
+  
+  return (
+    <div key={el.id} className={`preview-element preview-element-${el.type}`}>
+      {component}
+    </div>
+  );
 }
 
 export function PreviewPage() {
@@ -143,6 +153,7 @@ export function PreviewPage() {
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
         <div
+          className={`preview-container preview-container-${viewMode}`}
           style={{
             width: VIEW_WIDTHS[viewMode],
             maxWidth: '100%',

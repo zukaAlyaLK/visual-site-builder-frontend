@@ -1,0 +1,156 @@
+/* Styling for preview mobile and tablet view modes */
+
+/* Common overrides */
+.preview-container {
+  overflow-x: hidden !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+}
+
+/* --- Mobile view overrides --- */
+.preview-container-mobile {
+  box-sizing: border-box;
+}
+
+/* Header */
+.preview-container-mobile .preview-element-header > header {
+  flex-direction: column !important;
+  gap: 12px !important;
+  padding: 16px !important;
+  align-items: center !important;
+}
+
+.preview-container-mobile .preview-element-header nav {
+  gap: 16px !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+}
+
+/* Hero */
+.preview-container-mobile .preview-element-hero > section {
+  padding: 48px 16px !important;
+  margin: 12px !important;
+  border-radius: 16px !important;
+}
+
+.preview-container-mobile .preview-element-hero h1 {
+  font-size: 28px !important;
+  line-height: 1.2 !important;
+  margin-bottom: 16px !important;
+}
+
+.preview-container-mobile .preview-element-hero p {
+  font-size: 15px !important;
+  margin-bottom: 24px !important;
+}
+
+.preview-container-mobile .preview-element-hero button {
+  padding: 12px 24px !important;
+  font-size: 14px !important;
+}
+
+/* Text */
+.preview-container-mobile .preview-element-text > div {
+  padding: 16px !important;
+  font-size: 15px !important;
+  margin: 8px !important;
+}
+
+/* Image */
+.preview-container-mobile .preview-element-image > div {
+  margin: 12px !important;
+  padding: 0 !important;
+}
+
+.preview-container-mobile .preview-element-image img {
+  max-width: 100% !important;
+  height: auto !important;
+  border-radius: 12px !important;
+}
+
+/* Button */
+.preview-container-mobile .preview-element-button > div {
+  padding: 12px 16px !important;
+  margin: 8px !important;
+}
+
+.preview-container-mobile .preview-element-button button {
+  padding: 12px 24px !important;
+  font-size: 15px !important;
+  width: auto !important;
+  max-width: 100% !important;
+}
+
+/* Card */
+.preview-container-mobile .preview-element-card > div {
+  max-width: 100% !important;
+  margin: 12px !important;
+}
+
+.preview-container-mobile .preview-element-card > div > div {
+  grid-template-columns: 1fr !important;
+  gap: 16px !important;
+}
+
+/* Form */
+.preview-container-mobile .preview-element-form > div {
+  padding: 24px 16px !important;
+  margin: 20px 12px !important;
+  max-width: 100% !important;
+  border-radius: 16px !important;
+}
+
+.preview-container-mobile .preview-element-form h2 {
+  font-size: 22px !important;
+  margin-bottom: 8px !important;
+}
+
+.preview-container-mobile .preview-element-form p {
+  font-size: 14px !important;
+}
+
+.preview-container-mobile .preview-element-form div {
+  margin-bottom: 20px !important;
+}
+
+/* Footer */
+.preview-container-mobile .preview-element-footer > footer {
+  padding: 24px 16px !important;
+  margin: 0 !important;
+}
+
+.preview-container-mobile .preview-element-footer footer > div {
+  gap: 12px !important;
+}
+
+.preview-container-mobile .preview-element-footer footer a {
+  font-size: 13px !important;
+}
+
+/* Columns */
+.preview-container-mobile .preview-element-columns > div {
+  flex-direction: column !important;
+  padding: 16px !important;
+  gap: 16px !important;
+  margin: 12px !important;
+}
+
+.preview-container-mobile .preview-element-columns > div > div {
+  width: 100% !important;
+}
+
+
+/* --- Tablet view overrides --- */
+.preview-container-tablet .preview-element-hero > section {
+  padding: 64px 24px !important;
+  margin: 16px !important;
+}
+
+.preview-container-tablet .preview-element-hero h1 {
+  font-size: 40px !important;
+}
+
+.preview-container-tablet .preview-element-form > div {
+  padding: 36px 24px !important;
+  margin: 24px auto !important;
+}

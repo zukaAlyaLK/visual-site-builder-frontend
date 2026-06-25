@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   DndContext,
@@ -14,7 +14,7 @@ import { getProject, getMembers, updateProject } from '../api/projects.api';
 import { useCanvasStore } from '../store/canvas.store';
 import { useAuthStore } from '../store/auth.store';
 import { connectToProject, disconnectSocket } from '../collab/socket';
-import { yElements } from '../collab/yjs';
+import { resetYDoc, getYElements } from '../collab/yjs';
 import { Canvas } from '../components/editor/Canvas';
 import { ComponentPanel } from '../components/editor/ComponentPanel';
 import { PropertiesPanel } from '../components/editor/PropertiesPanel';
@@ -25,11 +25,15 @@ import type { Member, ElementType, CanvasElement } from '../types';
 export function EditorPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { token } = useAuthStore();
-  const { elements, addElement, setElements, undo, redo } = useCanvasStore();
+  const { elements, addElement, setElements, resetStore, undo, redo } = useCanvasStore();
   const [projectName, setProjectName] = useState('Загрузка...');
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDrag, setActiveDrag] = useState<any>(null);
+
+  // Always-current ref for save-on-close
+  const elementsRef = useRef(elements);
+  useEffect(() => { elementsRef.current = elements; }, [elements]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -98,7 +102,8 @@ export function EditorPage() {
           style: { padding: '24px' },
           content: { columns: [[], []] },
         };
-      default: return { ...base, content: {} };
+      default:
+        return { ...base, content: {} };
     }
   };
 
@@ -134,8 +139,25 @@ export function EditorPage() {
     setActiveDrag(event.active);
   }, []);
 
+  // ─── Main init effect ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!projectId || !token) return;
+
+    setLoading(true);
+
+    // ① Clear Zustand store immediately — prevents stale data from the
+    //    previous project appearing in the UI or being accidentally saved.
+    resetStore();
+
+    // ② Reset the Yjs document for this project session.
+    const ydoc = resetYDoc();
+
+    // ③ Connect the socket NOW (before the API call).
+    //    The socket is in "connecting" state — any events emitted while
+    //    connecting are buffered by socket.io and flushed on connect.
+    //    This ensures the ydoc 'update' listener is in place before we
+    //    seed the document with saved data.
+    connectToProject(projectId, token);
 
     const init = async () => {
       try {
@@ -146,15 +168,22 @@ export function EditorPage() {
         setProjectName(project.name);
         setMembers(memberList);
 
-        const elements = project.canvasData?.elements || [];
-        setElements(elements);
+        const savedElements: CanvasElement[] = project.canvasData?.elements || [];
 
-        if (elements.length > 0) {
-          yElements.delete(0, yElements.length);
-          yElements.push(elements);
+        // ④ Write saved DB data into Zustand (skip Yjs — we do it below).
+        setElements(savedElements, true);
+
+        // ⑤ Seed the fresh Yjs document with DB data.
+        //    Because connectToProject (③) already registered the ydoc listener,
+        //    this transact will trigger an emit. The buffered emit reaches the
+        //    server once the WebSocket handshake completes.
+        if (savedElements.length > 0) {
+          const yElements = getYElements();
+          ydoc.transact(() => {
+            yElements.delete(0, yElements.length);
+            yElements.push(savedElements);
+          });
         }
-
-        connectToProject(projectId, token);
       } catch (err) {
         console.error('Failed to init editor', err);
       } finally {
@@ -169,27 +198,30 @@ export function EditorPage() {
     };
   }, [projectId, token]);
 
-  // Sync yElements -> canvas store
+  // ─── Yjs → Zustand observer ────────────────────────────────────────────────
+  // Observe the Yjs array for changes and mirror them into the Zustand store.
+  // IMPORTANT: capture yElements at setup time (not inside the observer closure)
+  // so the observer always refers to the correct Y.Doc, even after a resetYDoc().
   useEffect(() => {
+    const yElements = getYElements(); // ← captured once at setup time
+
     const observer = () => {
-      const els = yElements.toArray();
-      setElements(els);
+      const els = yElements.toArray() as CanvasElement[]; // ← uses captured ref
+      setElements(els, true /* skipYjs — avoid echo */);
     };
+
     yElements.observe(observer);
     return () => yElements.unobserve(observer);
-  }, [setElements]);
+  }, [setElements, projectId]); // re-subscribe whenever the project (and ydoc) changes
 
-  // Keyboard shortcuts
+  // ─── Keyboard shortcuts ────────────────────────────────────────────────────
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         undo();
       }
-      if (
-        (e.ctrlKey || e.metaKey) &&
-        (e.key === 'y' || (e.key === 'z' && e.shiftKey))
-      ) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
         e.preventDefault();
         redo();
       }
@@ -202,13 +234,39 @@ export function EditorPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  // ─── Auto-save every 2 minutes ─────────────────────────────────────────────
   useEffect(() => {
     if (!projectId) return;
     const interval = setInterval(() => {
-      updateProject(projectId, { canvasData: { elements } }).catch(() => undefined);
-    }, 5 * 60 * 1000);
+      updateProject(projectId, { canvasData: { elements: elementsRef.current } }).catch(() => undefined);
+    }, 2 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [projectId, elements]);
+  }, [projectId]);
+
+  // ─── Save on tab / browser close ──────────────────────────────────────────
+  useEffect(() => {
+    if (!projectId) return;
+
+    const handleBeforeUnload = () => {
+      const currentToken = useAuthStore.getState().token;
+      if (!currentToken) return;
+      const payload = JSON.stringify({
+        canvasData: JSON.stringify({ elements: elementsRef.current }),
+      });
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', `${import.meta.env.VITE_API_URL}/projects/${projectId}`, false /* sync */);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('Authorization', `Bearer ${currentToken}`);
+        xhr.send(payload);
+      } catch {
+        // ignore errors on unload
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [projectId]);
 
   if (loading) {
     return (

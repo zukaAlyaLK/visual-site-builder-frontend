@@ -1,11 +1,29 @@
 import * as Y from 'yjs';
 
-export const ydoc = new Y.Doc();
+// The active Y.Doc — replaced on every new project session
+let _ydoc = new Y.Doc();
 
-export const yElements = ydoc.getArray<any>('elements');
+export function getYDoc(): Y.Doc {
+  return _ydoc;
+}
 
-export const applyRemoteUpdate = (update: Uint8Array) => {
-  Y.applyUpdate(ydoc, update);
-};
+/** Call this when entering a new project to get a clean slate */
+export function resetYDoc(): Y.Doc {
+  _ydoc.destroy();
+  _ydoc = new Y.Doc();
+  return _ydoc;
+}
 
-export const getStateUpdate = () => Y.encodeStateAsUpdate(ydoc);
+export function getYElements(): Y.Array<any> {
+  return _ydoc.getArray<any>('elements');
+}
+
+export function applyRemoteUpdate(update: Uint8Array) {
+  // Pass 'remote' as origin so the ydoc 'update' listener can skip
+  // echoing this back to the server
+  Y.applyUpdate(_ydoc, update, 'remote');
+}
+
+export function getStateUpdate(): Uint8Array {
+  return Y.encodeStateAsUpdate(_ydoc);
+}
