@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { onCursorMove } from '../../collab/socket';
+import { onCursorMove, getOwnSocketId } from '../../collab/socket';
 
 interface Cursor {
   socketId: string;
@@ -33,6 +33,9 @@ export function CursorOverlay() {
 
   useEffect(() => {
     onCursorMove((data) => {
+      // Never render the current user's own cursor
+      if (data.socketId === getOwnSocketId()) return;
+
       const now = Date.now();
       targetsRef.current.set(data.socketId, { x: data.x, y: data.y });
       setCursors((prev) => {

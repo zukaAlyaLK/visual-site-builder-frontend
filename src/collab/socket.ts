@@ -13,6 +13,9 @@ type CursorHandler = (data: {
 }) => void;
 let cursorHandler: CursorHandler | null = null;
 
+// Resolvers waiting for a sync-state event from the server.
+const syncStateResolvers: Array<(received: boolean) => void> = [];
+
 export function connectToProject(projectId: string, token: string) {
   // Disconnect any existing connection first
   if (socket) {
@@ -47,6 +50,10 @@ export function connectToProject(projectId: string, token: string) {
   // ✅ Receive initial Yjs state snapshot from server (sent on join)
   socket.on('sync-state', (update: number[]) => {
     applyRemoteUpdate(new Uint8Array(update));
+    // Resolve all pending waitForSyncState() callers with true
+    while (syncStateResolvers.length > 0) {
+      syncStateResolvers.pop()!(true);
+    }
   });
 
   // ✅ Receive incremental Yjs updates from other collaborators
@@ -85,6 +92,24 @@ export function onCursorMove(handler: CursorHandler) {
   cursorHandler = handler;
 }
 
+/**
+ * Wait up to `timeoutMs` milliseconds for the server to send a sync-state
+ * event. Resolves with `true` if it arrives, `false` on timeout.
+ * Call this AFTER connectToProject() so the socket listener is already set up.
+ */
+export function waitForSyncState(timeoutMs = 2000): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    syncStateResolvers.push(resolve);
+    setTimeout(() => {
+      const idx = syncStateResolvers.indexOf(resolve);
+      if (idx !== -1) {
+        syncStateResolvers.splice(idx, 1);
+        resolve(false); // timed out — server has no state
+      }
+    }, timeoutMs);
+  });
+}
+
 export function sendCursor(projectId: string, x: number, y: number) {
   // ✅ Send { projectId, x, y } — matches what backend expects
   socket?.emit('cursor-move', { projectId, x, y });
@@ -95,6 +120,10 @@ export function disconnectSocket() {
     getYDoc().off('update', ydocUpdateListener);
     ydocUpdateListener = null;
   }
+  // Reject any pending sync-state waiters so they don't dangle
+  while (syncStateResolvers.length > 0) {
+    syncStateResolvers.pop()!(false);
+  }
   socket?.disconnect();
   socket = null;
   cursorHandler = null;
@@ -102,4 +131,9 @@ export function disconnectSocket() {
 
 export function getSocket() {
   return socket;
+}
+
+/** Returns the socket ID of the current client (undefined if not connected). */
+export function getOwnSocketId(): string | undefined {
+  return socket?.id;
 }

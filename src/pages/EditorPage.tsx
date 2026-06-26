@@ -14,7 +14,7 @@ import { getProject, getMembers, updateProject } from '../api/projects.api';
 import { useCanvasStore } from '../store/canvas.store';
 import { useAuthStore } from '../store/auth.store';
 import { connectToProject, disconnectSocket } from '../collab/socket';
-import { resetYDoc, getYElements } from '../collab/yjs';
+import { resetYDoc } from '../collab/yjs';
 import { Canvas } from '../components/editor/Canvas';
 import { ComponentPanel } from '../components/editor/ComponentPanel';
 import { PropertiesPanel } from '../components/editor/PropertiesPanel';
@@ -145,18 +145,17 @@ export function EditorPage() {
 
     setLoading(true);
 
-    // ① Clear Zustand store immediately — prevents stale data from the
-    //    previous project appearing in the UI or being accidentally saved.
+    // ① Clear Zustand store immediately
     resetStore();
 
-    // ② Reset the Yjs document for this project session.
-    const ydoc = resetYDoc();
+    // ② Reset the Yjs document for this session.
+    resetYDoc();
 
-    // ③ Connect the socket NOW (before the API call).
-    //    The socket is in "connecting" state — any events emitted while
-    //    connecting are buffered by socket.io and flushed on connect.
-    //    This ensures the ydoc 'update' listener is in place before we
-    //    seed the document with saved data.
+    // ③ Connect socket. The server will:
+    //    a) Load DB data into its own YDoc if the room is empty (first joiner)
+    //    b) ALWAYS send 'sync-state' back to this client
+    //    The Yjs observer (separate effect below) will apply that state to
+    //    Zustand automatically — no client-side seeding needed.
     connectToProject(projectId, token);
 
     const init = async () => {
@@ -168,22 +167,11 @@ export function EditorPage() {
         setProjectName(project.name);
         setMembers(memberList);
 
+        // Show DB data immediately as an optimistic UI snapshot.
+        // The Yjs observer will overwrite this with authoritative server
+        // state once sync-state arrives (usually within milliseconds).
         const savedElements: CanvasElement[] = project.canvasData?.elements || [];
-
-        // ④ Write saved DB data into Zustand (skip Yjs — we do it below).
-        setElements(savedElements, true);
-
-        // ⑤ Seed the fresh Yjs document with DB data.
-        //    Because connectToProject (③) already registered the ydoc listener,
-        //    this transact will trigger an emit. The buffered emit reaches the
-        //    server once the WebSocket handshake completes.
-        if (savedElements.length > 0) {
-          const yElements = getYElements();
-          ydoc.transact(() => {
-            yElements.delete(0, yElements.length);
-            yElements.push(savedElements);
-          });
-        }
+        setElements(savedElements, true /* skipYjs */);
       } catch (err) {
         console.error('Failed to init editor', err);
       } finally {
