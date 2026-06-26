@@ -14,7 +14,7 @@ import { getProject, getMembers, updateProject } from '../api/projects.api';
 import { useCanvasStore } from '../store/canvas.store';
 import { useAuthStore } from '../store/auth.store';
 import { connectToProject, disconnectSocket } from '../collab/socket';
-import { resetYDoc } from '../collab/yjs';
+import { resetYDoc, getYElements } from '../collab/yjs';
 import { Canvas } from '../components/editor/Canvas';
 import { ComponentPanel } from '../components/editor/ComponentPanel';
 import { PropertiesPanel } from '../components/editor/PropertiesPanel';
