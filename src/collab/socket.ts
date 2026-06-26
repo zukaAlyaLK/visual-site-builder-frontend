@@ -1,5 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-import { applyRemoteUpdate, getYDoc, getYElements } from './yjs';
+import { applyRemoteUpdate, getYDoc } from './yjs';
 
 let socket: Socket | null = null;
 let ydocUpdateListener: ((update: Uint8Array, origin: unknown) => void) | null = null;

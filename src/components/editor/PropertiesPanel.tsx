@@ -13,7 +13,7 @@ import {
   Type,
   FileImage,
 } from 'lucide-react';
-import type { ElementType } from '../../types';
+
 
 export function PropertiesPanel() {
   const { elements, selectedId, updateElement } = useCanvasStore();
